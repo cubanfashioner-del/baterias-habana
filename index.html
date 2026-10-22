@@ -317,6 +317,7 @@
     const themeIcon = document.getElementById("theme-icon");
     let activeBrand = "Todas";
     let lastFocusedElement = null;
+    let modalHistoryEntry = false;
 
     function renderProducts() {
       const query = searchInput.value.trim().toLocaleLowerCase("es");
@@ -349,8 +350,13 @@
       `).join("");
     }
 
-    function openModal(product) {
+    function openModal(product, addHistoryEntry = true) {
       lastFocusedElement = document.activeElement;
+      if (addHistoryEntry) {
+        const currentState = history.state && typeof history.state === "object" ? history.state : {};
+        history.pushState({ ...currentState, catalogProductModal: product.id }, "", window.location.href);
+      }
+      modalHistoryEntry = true;
       document.getElementById("modal-image").src = product.image;
       document.getElementById("modal-image").alt = `Imagen ampliada de ${product.name}`;
       document.getElementById("modal-title").textContent = product.name;
@@ -367,10 +373,17 @@
       closeButton.focus();
     }
 
-    function closeModal() {
+    function closeModal(fromHistory = false) {
+      if (modal.classList.contains("hidden")) return;
+      const state = history.state;
+      if (!fromHistory && modalHistoryEntry && state && state.catalogProductModal !== undefined) {
+        history.back();
+        return;
+      }
       modal.classList.add("hidden");
       modal.classList.remove("flex");
       document.body.classList.remove("overflow-hidden");
+      modalHistoryEntry = false;
       if (lastFocusedElement) lastFocusedElement.focus();
     }
 
@@ -420,6 +433,16 @@
     closeButton.addEventListener("click", closeModal);
     modal.addEventListener("click", (event) => {
       if (event.target === modal) closeModal();
+    });
+    window.addEventListener("popstate", (event) => {
+      const state = event.state;
+      const modalProductId = state && typeof state === "object" ? state.catalogProductModal : null;
+      if (typeof modalProductId === "number") {
+        const product = products.find((item) => item.id === modalProductId);
+        if (product && modal.classList.contains("hidden")) openModal(product, false);
+        return;
+      }
+      closeModal(true);
     });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
